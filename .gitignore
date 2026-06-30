@@ -1,0 +1,22 @@
+# Build output
+/build/
+/dist/
+*.class
+
+# NetBeans local/private settings
+/nbproject/private/
+
+# Runtime uploads and local demo images
+/web/uploads/
+/build/web/uploads/
+
+# Local helper probes
+/InspectPasswordPattern.java
+/InspectUsersSchema.java
+/InspectPasswordPattern.class
+/InspectUsersSchema.class
+
+# Local environment/config files
+.env
+*.local
+*.log

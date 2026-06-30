@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Context path="/sharehub2">
+    <!-- Set SHAREHUB_UPLOAD_DIR or -Dsharehub.upload.dir on deployed servers. -->
+</Context>
