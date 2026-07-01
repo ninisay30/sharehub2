@@ -590,7 +590,10 @@ boolean supportsCategoryCondition = false;
                 schemaHint = "Category and condition filters will work after the database update script is applied.";
             }
             sqlBuilder.append("FROM donations WHERE donor_id <> ? ")
-                      .append("AND LOWER(COALESCE(status, '')) NOT IN ('rejected', 'completed', 'expired') ");
+                      .append("AND LOWER(COALESCE(status, '')) = 'available' ")
+                      .append("AND NOT EXISTS (SELECT 1 FROM requests r ")
+                      .append("WHERE r.donation_id = donations.donation_id ")
+                      .append("AND LOWER(r.status) IN ('pending', 'approved', 'pickup scheduled', 'received pending', 'completed')) ");
 
             List<String> queryValues = new ArrayList<String>();
             if (!searchTerm.isEmpty()) {
