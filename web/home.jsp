@@ -547,7 +547,6 @@ String categoryFilter = request.getParameter("category")  == null ? "" : request
 String conditionFilter= request.getParameter("condition") == null ? "" : request.getParameter("condition").trim();
 
 List<Object[]> availableItems   = new ArrayList<Object[]>();
-List<Object[]> unavailableItems = new ArrayList<Object[]>();
 String loadError  = null;
 String schemaHint = null;
 boolean supportsCategoryCondition = false;
@@ -652,11 +651,7 @@ boolean supportsCategoryCondition = false;
                 }
 
                 Object[] item = new Object[]{ donationId, title, description, imageUrl, category, itemCondition, statusLabel, statusClass };
-                if ("Available".equalsIgnoreCase(normalizedStatus)) {
-                    availableItems.add(item);
-                } else {
-                    unavailableItems.add(item);
-                }
+                availableItems.add(item);
             }
         }
     } catch (SQLException e) {
@@ -733,7 +728,7 @@ boolean hasFilters = !searchTerm.isEmpty() || !categoryFilter.isEmpty() || !cond
     </form>
 
     <%-- Full-page empty state --%>
-    <% if (availableItems.isEmpty() && unavailableItems.isEmpty()) { %>
+    <% if (availableItems.isEmpty()) { %>
     <div class="hc-full-empty">
         <span class="hc-full-empty-icon">&#128269;</span>
         <% if (hasFilters) { %>
@@ -750,15 +745,8 @@ boolean hasFilters = !searchTerm.isEmpty() || !categoryFilter.isEmpty() || !cond
     </div>
     <% } else { %>
 
-    <%-- Tab filter --%>
-    <div class="home-view-filter" role="group" aria-label="Item section filter">
-        <button type="button" class="home-view-btn active" data-view="all">All (<%= availableItems.size() + unavailableItems.size() %>)</button>
-        <button type="button" class="home-view-btn" data-view="available">Available (<%= availableItems.size() %>)</button>
-        <button type="button" class="home-view-btn" data-view="unavailable">Unavailable (<%= unavailableItems.size() %>)</button>
-    </div>
-
     <%-- ===== AVAILABLE SECTION ===== --%>
-    <div class="home-browse-section" data-section-type="available">
+    <div class="home-browse-section">
         <div class="hc-section-head avail-head home-section-heading">
             <h2>Available Now</h2>
             <span class="hc-count-badge"><%= availableItems.size() %></span>
@@ -820,67 +808,6 @@ boolean hasFilters = !searchTerm.isEmpty() || !categoryFilter.isEmpty() || !cond
         <% } %>
     </div>
 
-    <%-- ===== UNAVAILABLE SECTION ===== --%>
-    <div class="home-browse-section" data-section-type="unavailable">
-        <div class="hc-section-head home-section-heading" style="margin-top:8px;">
-            <h2>Currently Unavailable</h2>
-            <span class="hc-count-badge"><%= unavailableItems.size() %></span>
-        </div>
-        <p class="page-subtitle home-section-context" style="margin-top:-8px;margin-bottom:14px;">
-            These items are pending review or already reserved by another requester.
-        </p>
-        <% if (unavailableItems.isEmpty()) { %>
-        <div class="hc-sect-empty">
-            <p>No unavailable items at the moment.</p>
-        </div>
-        <% } else { %>
-        <div class="item-grid">
-            <%
-            for (Object[] item : unavailableItems) {
-                String title         = item[1] == null ? "" : item[1].toString();
-                String description   = item[2] == null ? "" : item[2].toString();
-                String imageUrl      = item[3] == null ? "" : item[3].toString();
-                String category      = item[4] == null ? "Others / Miscellaneous" : item[4].toString();
-                String itemCondition = item[5] == null ? "Good" : item[5].toString();
-                String statusLabel   = item[6] == null ? "" : item[6].toString();
-                String statusClass   = item[7] == null ? "pending" : item[7].toString();
-                String hso = "hso-" + statusClass;
-            %>
-            <div class="item-card">
-                <div class="hc-img-wrap">
-                    <button type="button" class="hc-img-btn js-home-image-open"
-                            data-image-url="<%= imageUrl %>" title="View full image">
-                        <img src="<%= imageUrl %>" alt="<%= title %>">
-                    </button>
-                    <span class="hc-status-overlay <%= hso %>">
-                        <span class="hc-sdot"></span>
-                        <%= statusLabel %>
-                    </span>
-                </div>
-                <div class="hc-body">
-                    <h3 class="hc-title"><%= title %></h3>
-                    <div class="hc-badges">
-                        <span class="hc-badge hc-badge-cat">&#127807; <%= category %></span>
-                        <span class="hc-badge hc-badge-cond">&#9733; <%= itemCondition %></span>
-                    </div>
-                    <% if (description != null && !description.trim().isEmpty()) { %>
-                    <button type="button" class="hc-desc-toggle js-description-toggle" aria-expanded="false">
-                        Show description
-                    </button>
-                    <p class="item-description" hidden><%= description %></p>
-                    <% } %>
-                    <div class="hc-actions">
-                        <button type="button" class="hc-view-btn js-home-image-open"
-                                data-image-url="<%= imageUrl %>">View Photo</button>
-                        <button type="button" class="hc-unavail-btn" disabled>Not Available</button>
-                    </div>
-                </div>
-            </div>
-            <% } %>
-        </div>
-        <% } %>
-    </div>
-
     <% } /* end has items */ %>
     <% } /* end no loadError */ %>
 
@@ -896,32 +823,6 @@ boolean hasFilters = !searchTerm.isEmpty() || !categoryFilter.isEmpty() || !cond
 </div>
 
 <script>
-(function () {
-    var filterButtons = document.querySelectorAll('.home-view-btn');
-    var sections = document.querySelectorAll('.home-browse-section');
-    if (!filterButtons.length || !sections.length) return;
-
-    function setView(view) {
-        for (var i = 0; i < filterButtons.length; i++) {
-            filterButtons[i].classList.toggle('active', filterButtons[i].getAttribute('data-view') === view);
-        }
-        for (var j = 0; j < sections.length; j++) {
-            var sectionType = sections[j].getAttribute('data-section-type');
-            sections[j].style.display = (view === 'all' || view === sectionType) ? '' : 'none';
-            var heading = sections[j].querySelector('.home-section-heading');
-            if (heading) heading.style.display = view === 'all' ? 'none' : '';
-            var context = sections[j].querySelector('.home-section-context');
-            if (context) context.style.display = view === 'all' ? 'none' : '';
-        }
-    }
-
-    for (var k = 0; k < filterButtons.length; k++) {
-        filterButtons[k].addEventListener('click', function () { setView(this.getAttribute('data-view')); });
-    }
-
-    setView('all');
-})();
-
 (function () {
     var toggles = document.querySelectorAll('.js-description-toggle');
     for (var d = 0; d < toggles.length; d++) {
