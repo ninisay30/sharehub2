@@ -79,8 +79,10 @@ public class MonthlyReportServlet extends HttpServlet {
         }
 
         String monthName = new DateFormatSymbols().getMonths()[month - 1];
-        String filename = "ShareHub_Monthly_Sustainability_Report_" + year + "_"
-                + twoDigits(month) + ".pdf";
+        String filename = (adminReport
+                ? "ShareHub_Monthly_Platform_Report_"
+                : "ShareHub_Monthly_Sustainability_Report_")
+                + year + "_" + twoDigits(month) + ".pdf";
 
         response.setContentType("application/pdf");
         response.setHeader("Content-Disposition", "attachment; filename=\"" + filename + "\"");
@@ -245,7 +247,10 @@ public class MonthlyReportServlet extends HttpServlet {
         Font subFont = FontFactory.getFont(FontFactory.HELVETICA, 10, TEXT_MUTED);
         Font sectionFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12, GREEN);
 
-        Paragraph title = new Paragraph("ShareHub Monthly Sustainability Report", titleFont);
+        String reportTitle = adminReport
+                ? "ShareHub Monthly Platform Report"
+                : "ShareHub Monthly Sustainability Report";
+        Paragraph title = new Paragraph(reportTitle, titleFont);
         title.setAlignment(Element.ALIGN_CENTER);
         title.setSpacingAfter(8);
         document.add(title);
@@ -257,9 +262,9 @@ public class MonthlyReportServlet extends HttpServlet {
         meta.setSpacingAfter(16);
         document.add(meta);
 
-        addImpactBanner(document, stats);
+        addImpactBanner(document, stats, adminReport);
 
-        addSection(document, "A. Donation Statistics", sectionFont);
+        addSection(document, adminReport ? "A. Platform Donation Overview" : "A. Donation Statistics", sectionFont);
         addStatsTable(document, new String[][]{
             {"Total Donations Submitted", String.valueOf(stats.totalDonationsSubmitted)},
             {"Approved Donations", String.valueOf(stats.approvedDonations)},
@@ -269,7 +274,7 @@ public class MonthlyReportServlet extends HttpServlet {
             {"Expired Donations", String.valueOf(stats.expiredDonations)}
         });
 
-        addSection(document, "B. Request Statistics", sectionFont);
+        addSection(document, adminReport ? "B. Platform Request Overview" : "B. Request Statistics", sectionFont);
         addStatsTable(document, new String[][]{
             {"Total Requests Submitted", String.valueOf(stats.totalRequestsSubmitted)},
             {"Approved Requests", String.valueOf(stats.approvedRequests)},
@@ -277,13 +282,13 @@ public class MonthlyReportServlet extends HttpServlet {
             {"Completed Requests", String.valueOf(stats.completedRequests)}
         });
 
-        addSection(document, "C. Sustainability Impact", sectionFont);
+        addSection(document, adminReport ? "C. Platform Reuse Impact" : "C. Sustainability Impact", sectionFont);
         addStatsTable(document, new String[][]{
             {"Items Successfully Reused", String.valueOf(stats.itemsSuccessfullyReused)},
             {"Completed Donation Transactions", String.valueOf(stats.completedDonationTransactions)}
         });
 
-        addSection(document, "D. Category Breakdown", sectionFont);
+        addSection(document, adminReport ? "D. Donation Category Distribution" : "D. Category Breakdown", sectionFont);
         addStatsTable(document, new String[][]{
             {"Books & Study Materials", String.valueOf(stats.books)},
             {"Electronics", String.valueOf(stats.electronics)},
@@ -292,7 +297,16 @@ public class MonthlyReportServlet extends HttpServlet {
             {"Others", String.valueOf(stats.others)}
         });
 
-        addSection(document, "E. Monthly Summary Statement", sectionFont);
+        if (adminReport) {
+            addSection(document, "E. Administrative Notes", sectionFont);
+            addStatsTable(document, new String[][]{
+                {"Listings Requiring Continued Monitoring", String.valueOf(stats.activeDonations)},
+                {"Listings Removed Through Expiry", String.valueOf(stats.expiredDonations)},
+                {"Moderation Outcomes Recorded", String.valueOf(stats.approvedDonations + stats.rejectedDonations + stats.approvedRequests + stats.rejectedRequests)}
+            });
+        }
+
+        addSection(document, adminReport ? "F. Platform Summary Statement" : "E. Monthly Summary Statement", sectionFont);
         Paragraph summary = new Paragraph(buildSummaryStatement(stats, monthName, year, adminReport),
                 FontFactory.getFont(FontFactory.HELVETICA, 10, TEXT_DARK));
         summary.setLeading(15);
@@ -308,15 +322,21 @@ public class MonthlyReportServlet extends HttpServlet {
         document.close();
     }
 
-    private void addImpactBanner(Document document, ReportStats stats)
+    private void addImpactBanner(Document document, ReportStats stats, boolean adminReport)
             throws DocumentException {
         PdfPTable table = new PdfPTable(3);
         table.setWidthPercentage(100);
         table.setWidths(new float[]{1f, 1f, 1f});
         table.setSpacingAfter(14);
-        addBannerCell(table, "Donations Submitted", stats.totalDonationsSubmitted);
-        addBannerCell(table, "Requests Submitted", stats.totalRequestsSubmitted);
-        addBannerCell(table, "Items Reused", stats.itemsSuccessfullyReused);
+        if (adminReport) {
+            addBannerCell(table, "Platform Donations", stats.totalDonationsSubmitted);
+            addBannerCell(table, "Platform Requests", stats.totalRequestsSubmitted);
+            addBannerCell(table, "Completed Reuse", stats.itemsSuccessfullyReused);
+        } else {
+            addBannerCell(table, "Donations Submitted", stats.totalDonationsSubmitted);
+            addBannerCell(table, "Requests Submitted", stats.totalRequestsSubmitted);
+            addBannerCell(table, "Items Reused", stats.itemsSuccessfullyReused);
+        }
         document.add(table);
     }
 
@@ -371,6 +391,14 @@ public class MonthlyReportServlet extends HttpServlet {
     private String buildSummaryStatement(ReportStats stats, String monthName, int year,
             boolean adminReport) {
         if (stats.itemsSuccessfullyReused > 0 || stats.completedDonationTransactions > 0) {
+            if (adminReport) {
+                return "In " + monthName + " " + year + ", the ShareHub platform recorded "
+                        + stats.totalDonationsSubmitted + " donation submission(s), "
+                        + stats.totalRequestsSubmitted + " request submission(s), and "
+                        + stats.completedDonationTransactions + " completed donation transaction(s). "
+                        + "These platform-wide results help the administrator monitor student participation, "
+                        + "moderation outcomes, and the reuse impact created through ShareHub.";
+            }
             return "In " + monthName + " " + year + ", ShareHub supported "
                     + stats.itemsSuccessfullyReused + " successfully reused item(s) and "
                     + stats.completedDonationTransactions + " completed donation transaction(s). "
