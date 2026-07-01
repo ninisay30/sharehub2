@@ -37,8 +37,11 @@ import javax.servlet.http.HttpSession;
 public class MonthlyReportServlet extends HttpServlet {
 
     private static final Color GREEN = new Color(46, 125, 50);
+    private static final Color DARK_GREEN = new Color(27, 94, 32);
     private static final Color LIGHT_GREEN = new Color(232, 245, 233);
     private static final Color LIGHT_GRAY = new Color(245, 247, 250);
+    private static final Color BORDER = new Color(218, 226, 232);
+    private static final Color WHITE = Color.WHITE;
     private static final Color TEXT_DARK = new Color(17, 24, 39);
     private static final Color TEXT_MUTED = new Color(85, 99, 116);
 
@@ -239,79 +242,59 @@ public class MonthlyReportServlet extends HttpServlet {
             int year, String preparedFor, boolean adminReport)
             throws DocumentException {
 
-        Document document = new Document(PageSize.A4, 42, 42, 42, 42);
+        Document document = new Document(PageSize.A4, 36, 36, 34, 34);
         PdfWriter.getInstance(document, out);
         document.open();
 
-        Font titleFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 18, TEXT_DARK);
-        Font subFont = FontFactory.getFont(FontFactory.HELVETICA, 10, TEXT_MUTED);
-        Font sectionFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12, GREEN);
+        addReportHeader(document, monthName, year, preparedFor, adminReport);
+        addKpiStrip(document, stats, adminReport);
 
-        String reportTitle = adminReport
-                ? "ShareHub Monthly Platform Report"
-                : "ShareHub Monthly Sustainability Report";
-        Paragraph title = new Paragraph(reportTitle, titleFont);
-        title.setAlignment(Element.ALIGN_CENTER);
-        title.setSpacingAfter(8);
-        document.add(title);
-
-        Paragraph meta = new Paragraph(monthName + " " + year + " | "
-                + (adminReport ? "Platform-wide report" : "Personal contribution report")
-                + " | Prepared for: " + preparedFor, subFont);
-        meta.setAlignment(Element.ALIGN_CENTER);
-        meta.setSpacingAfter(16);
-        document.add(meta);
-
-        addImpactBanner(document, stats, adminReport);
-
-        addSection(document, adminReport ? "A. Platform Donation Overview" : "A. Donation Statistics", sectionFont);
-        addStatsTable(document, new String[][]{
-            {"Total Donations Submitted", String.valueOf(stats.totalDonationsSubmitted)},
-            {"Approved Donations", String.valueOf(stats.approvedDonations)},
-            {"Rejected Donations", String.valueOf(stats.rejectedDonations)},
-            {"Completed Donations", String.valueOf(stats.completedDonations)},
-            {"Active Donations", String.valueOf(stats.activeDonations)},
-            {"Expired Donations", String.valueOf(stats.expiredDonations)}
-        });
-
-        addSection(document, adminReport ? "B. Platform Request Overview" : "B. Request Statistics", sectionFont);
-        addStatsTable(document, new String[][]{
-            {"Total Requests Submitted", String.valueOf(stats.totalRequestsSubmitted)},
-            {"Approved Requests", String.valueOf(stats.approvedRequests)},
-            {"Rejected Requests", String.valueOf(stats.rejectedRequests)},
-            {"Completed Requests", String.valueOf(stats.completedRequests)}
-        });
-
-        addSection(document, adminReport ? "C. Platform Reuse Impact" : "C. Sustainability Impact", sectionFont);
-        addStatsTable(document, new String[][]{
-            {"Items Successfully Reused", String.valueOf(stats.itemsSuccessfullyReused)},
-            {"Completed Donation Transactions", String.valueOf(stats.completedDonationTransactions)}
-        });
-
-        addSection(document, adminReport ? "D. Donation Category Distribution" : "D. Category Breakdown", sectionFont);
-        addStatsTable(document, new String[][]{
-            {"Books & Study Materials", String.valueOf(stats.books)},
-            {"Electronics", String.valueOf(stats.electronics)},
-            {"Clothes & Accessories", String.valueOf(stats.clothes)},
-            {"Household & Hostel Items", String.valueOf(stats.household)},
-            {"Others", String.valueOf(stats.others)}
-        });
+        addTwoColumnStats(document,
+                "DONATION BREAKDOWN",
+                new String[][]{
+                    {"Submitted", String.valueOf(stats.totalDonationsSubmitted)},
+                    {"Approved", String.valueOf(stats.approvedDonations)},
+                    {"Rejected", String.valueOf(stats.rejectedDonations)},
+                    {"Completed", String.valueOf(stats.completedDonations)},
+                    {"Active", String.valueOf(stats.activeDonations)},
+                    {"Expired", String.valueOf(stats.expiredDonations)}
+                },
+                "REQUEST BREAKDOWN",
+                new String[][]{
+                    {"Submitted", String.valueOf(stats.totalRequestsSubmitted)},
+                    {"Approved", String.valueOf(stats.approvedRequests)},
+                    {"Rejected", String.valueOf(stats.rejectedRequests)},
+                    {"Completed", String.valueOf(stats.completedRequests)},
+                    {"Reuse transactions", String.valueOf(stats.completedDonationTransactions)}
+                });
 
         if (adminReport) {
-            addSection(document, "E. Administrative Notes", sectionFont);
-            addStatsTable(document, new String[][]{
-                {"Listings Requiring Continued Monitoring", String.valueOf(stats.activeDonations)},
-                {"Listings Removed Through Expiry", String.valueOf(stats.expiredDonations)},
-                {"Moderation Outcomes Recorded", String.valueOf(stats.approvedDonations + stats.rejectedDonations + stats.approvedRequests + stats.rejectedRequests)}
-            });
+            addTwoColumnStats(document,
+                    "CATEGORY DISTRIBUTION",
+                    categoryRows(stats),
+                    "ADMINISTRATIVE SNAPSHOT",
+                    new String[][]{
+                        {"Moderation outcomes", String.valueOf(stats.approvedDonations + stats.rejectedDonations + stats.approvedRequests + stats.rejectedRequests)},
+                        {"Listings to monitor", String.valueOf(stats.activeDonations)},
+                        {"Expired listings", String.valueOf(stats.expiredDonations)},
+                        {"Top active category", topCategory(stats)}
+                    });
+        } else {
+            addTwoColumnStats(document,
+                    "CATEGORY BREAKDOWN",
+                    categoryRows(stats),
+                    "PERSONAL IMPACT",
+                    new String[][]{
+                        {"Items received or donated", String.valueOf(stats.itemsSuccessfullyReused)},
+                        {"Completed reuse transactions", String.valueOf(stats.completedDonationTransactions)},
+                        {"Requests submitted", String.valueOf(stats.totalRequestsSubmitted)},
+                        {"Top category", topCategory(stats)}
+                    });
         }
 
-        addSection(document, adminReport ? "F. Platform Summary Statement" : "E. Monthly Summary Statement", sectionFont);
-        Paragraph summary = new Paragraph(buildSummaryStatement(stats, monthName, year, adminReport),
-                FontFactory.getFont(FontFactory.HELVETICA, 10, TEXT_DARK));
-        summary.setLeading(15);
-        summary.setSpacingAfter(16);
-        document.add(summary);
+        addImpactNarrative(document, stats, adminReport);
+        addSummaryBox(document, adminReport ? "PLATFORM SUMMARY" : "MONTHLY SUMMARY",
+                buildSummaryStatement(stats, monthName, year, adminReport, preparedFor));
 
         Paragraph footer = new Paragraph("Generated by ShareHub on "
                 + new SimpleDateFormat("dd MMM yyyy, h:mm a").format(new Date()),
@@ -322,16 +305,46 @@ public class MonthlyReportServlet extends HttpServlet {
         document.close();
     }
 
-    private void addImpactBanner(Document document, ReportStats stats, boolean adminReport)
+    private void addReportHeader(Document document, String monthName, int year,
+            String preparedFor, boolean adminReport) throws DocumentException {
+        PdfPTable header = new PdfPTable(1);
+        header.setWidthPercentage(100);
+        header.setSpacingAfter(14);
+
+        String title = adminReport
+                ? "SHAREHUB MONTHLY PLATFORM REPORT"
+                : "SHAREHUB MONTHLY SUSTAINABILITY REPORT";
+        PdfPCell top = new PdfPCell();
+        top.setBackgroundColor(DARK_GREEN);
+        top.setBorder(Rectangle.NO_BORDER);
+        top.setPadding(14);
+
+        Paragraph titleP = new Paragraph(title,
+                FontFactory.getFont(FontFactory.HELVETICA_BOLD, 16, WHITE));
+        titleP.setAlignment(Element.ALIGN_CENTER);
+        titleP.setSpacingAfter(6);
+        top.addElement(titleP);
+
+        String scope = adminReport ? "Platform-wide | All users and donations" : "Personal contribution report";
+        Paragraph metaP = new Paragraph(scope + " | " + monthName + " " + year
+                + " | Prepared for: " + preparedFor,
+                FontFactory.getFont(FontFactory.HELVETICA, 9, new Color(225, 245, 228)));
+        metaP.setAlignment(Element.ALIGN_CENTER);
+        top.addElement(metaP);
+        header.addCell(top);
+        document.add(header);
+    }
+
+    private void addKpiStrip(Document document, ReportStats stats, boolean adminReport)
             throws DocumentException {
         PdfPTable table = new PdfPTable(3);
         table.setWidthPercentage(100);
         table.setWidths(new float[]{1f, 1f, 1f});
-        table.setSpacingAfter(14);
+        table.setSpacingAfter(12);
         if (adminReport) {
-            addBannerCell(table, "Platform Donations", stats.totalDonationsSubmitted);
-            addBannerCell(table, "Platform Requests", stats.totalRequestsSubmitted);
-            addBannerCell(table, "Completed Reuse", stats.itemsSuccessfullyReused);
+            addBannerCell(table, "Total donations", stats.totalDonationsSubmitted);
+            addBannerCell(table, "Total requests", stats.totalRequestsSubmitted);
+            addBannerCell(table, "Items reused", stats.itemsSuccessfullyReused);
         } else {
             addBannerCell(table, "Donations Submitted", stats.totalDonationsSubmitted);
             addBannerCell(table, "Requests Submitted", stats.totalRequestsSubmitted);
@@ -341,8 +354,8 @@ public class MonthlyReportServlet extends HttpServlet {
     }
 
     private void addBannerCell(PdfPTable table, String label, int value) {
-        Font numberFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 17, GREEN);
-        Font labelFont = FontFactory.getFont(FontFactory.HELVETICA, 9, TEXT_MUTED);
+        Font numberFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 20, GREEN);
+        Font labelFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 8, TEXT_MUTED);
         Paragraph p = new Paragraph();
         p.add(new Chunk(String.valueOf(value), numberFont));
         p.add(Chunk.NEWLINE);
@@ -350,46 +363,136 @@ public class MonthlyReportServlet extends HttpServlet {
         PdfPCell cell = new PdfPCell(p);
         cell.setBackgroundColor(LIGHT_GREEN);
         cell.setBorderColor(new Color(190, 224, 194));
-        cell.setPadding(12);
+        cell.setPadding(13);
         cell.setHorizontalAlignment(Element.ALIGN_CENTER);
         table.addCell(cell);
     }
 
-    private void addSection(Document document, String heading, Font font)
+    private void addTwoColumnStats(Document document, String leftTitle, String[][] leftRows,
+            String rightTitle, String[][] rightRows)
             throws DocumentException {
-        Paragraph p = new Paragraph(heading, font);
-        p.setSpacingBefore(8);
-        p.setSpacingAfter(6);
-        document.add(p);
+        PdfPTable wrapper = new PdfPTable(2);
+        wrapper.setWidthPercentage(100);
+        wrapper.setWidths(new float[]{1f, 1f});
+        wrapper.setSpacingAfter(12);
+        wrapper.addCell(statsCard(leftTitle, leftRows));
+        wrapper.addCell(statsCard(rightTitle, rightRows));
+        document.add(wrapper);
     }
 
-    private void addStatsTable(Document document, String[][] rows)
-            throws DocumentException {
+    private PdfPCell statsCard(String title, String[][] rows) throws DocumentException {
         PdfPTable table = new PdfPTable(2);
         table.setWidthPercentage(100);
-        table.setWidths(new float[]{3.2f, 1f});
-        table.setSpacingAfter(8);
+        table.setWidths(new float[]{2.7f, 1f});
+
+        PdfPCell heading = new PdfPCell(new Phrase(title,
+                FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9, GREEN)));
+        heading.setColspan(2);
+        heading.setPadding(8);
+        heading.setBorder(Rectangle.BOTTOM);
+        heading.setBorderColor(BORDER);
+        heading.setBackgroundColor(WHITE);
+        table.addCell(heading);
+
         for (int i = 0; i < rows.length; i++) {
-            addTableCell(table, rows[i][0], false);
-            addTableCell(table, rows[i][1], true);
+            addTableCell(table, rows[i][0], false, i);
+            addTableCell(table, rows[i][1], true, i);
         }
-        document.add(table);
+
+        PdfPCell card = new PdfPCell(table);
+        card.setPadding(0);
+        card.setBorder(Rectangle.BOX);
+        card.setBorderColor(BORDER);
+        card.setBackgroundColor(WHITE);
+        return card;
     }
 
-    private void addTableCell(PdfPTable table, String text, boolean valueCell) {
+    private void addTableCell(PdfPTable table, String text, boolean valueCell, int rowIndex) {
         Font font = FontFactory.getFont(valueCell ? FontFactory.HELVETICA_BOLD : FontFactory.HELVETICA,
-                10, TEXT_DARK);
+                9, TEXT_DARK);
         PdfPCell cell = new PdfPCell(new Phrase(text, font));
-        cell.setPadding(8);
+        cell.setPadding(7);
         cell.setBorder(Rectangle.BOTTOM);
-        cell.setBorderColor(new Color(225, 230, 235));
-        cell.setBackgroundColor(valueCell ? Color.WHITE : LIGHT_GRAY);
+        cell.setBorderColor(BORDER);
+        cell.setBackgroundColor((rowIndex % 2 == 0) ? LIGHT_GRAY : WHITE);
         cell.setHorizontalAlignment(valueCell ? Element.ALIGN_CENTER : Element.ALIGN_LEFT);
         table.addCell(cell);
     }
 
+    private void addImpactNarrative(Document document, ReportStats stats, boolean adminReport)
+            throws DocumentException {
+        String title = adminReport ? "SUSTAINABILITY IMPACT" : "YOUR SHAREHUB IMPACT";
+        String body;
+        if (stats.itemsSuccessfullyReused > 0) {
+            body = "This month recorded " + stats.itemsSuccessfullyReused
+                    + " reused item(s). Each completed handover keeps a useful item in circulation "
+                    + "and reduces unnecessary waste in the UMT community.";
+        } else if (adminReport) {
+            body = "No completed reuse transactions were recorded this month. The "
+                    + stats.activeDonations + " active donation listing(s) remain potential reuse opportunities.";
+        } else {
+            body = "No items were reused through this account this month. Donating an item or requesting "
+                    + "an available listing helps build a stronger reuse culture at UMT.";
+        }
+        addSummaryBox(document, title, body);
+    }
+
+    private void addSummaryBox(Document document, String title, String body)
+            throws DocumentException {
+        PdfPTable table = new PdfPTable(1);
+        table.setWidthPercentage(100);
+        table.setSpacingAfter(12);
+
+        Paragraph p = new Paragraph();
+        p.add(new Chunk(title + "\n",
+                FontFactory.getFont(FontFactory.HELVETICA_BOLD, 10, GREEN)));
+        p.add(new Chunk(body,
+                FontFactory.getFont(FontFactory.HELVETICA, 9, TEXT_DARK)));
+        p.setLeading(14);
+
+        PdfPCell cell = new PdfPCell(p);
+        cell.setPadding(12);
+        cell.setBackgroundColor(LIGHT_GRAY);
+        cell.setBorder(Rectangle.BOX);
+        cell.setBorderColor(BORDER);
+        table.addCell(cell);
+        document.add(table);
+    }
+
+    private String[][] categoryRows(ReportStats stats) {
+        return new String[][]{
+            {"Books & Study Materials", String.valueOf(stats.books)},
+            {"Electronics & Gadgets", String.valueOf(stats.electronics)},
+            {"Clothes & Accessories", String.valueOf(stats.clothes)},
+            {"Household & Hostel Items", String.valueOf(stats.household)},
+            {"Others", String.valueOf(stats.others)}
+        };
+    }
+
+    private String topCategory(ReportStats stats) {
+        int max = stats.books;
+        String label = "Books";
+        if (stats.electronics > max) {
+            max = stats.electronics;
+            label = "Electronics";
+        }
+        if (stats.clothes > max) {
+            max = stats.clothes;
+            label = "Clothes";
+        }
+        if (stats.household > max) {
+            max = stats.household;
+            label = "Household";
+        }
+        if (stats.others > max) {
+            max = stats.others;
+            label = "Others";
+        }
+        return max == 0 ? "No activity" : label + " (" + max + ")";
+    }
+
     private String buildSummaryStatement(ReportStats stats, String monthName, int year,
-            boolean adminReport) {
+            boolean adminReport, String preparedFor) {
         if (stats.itemsSuccessfullyReused > 0 || stats.completedDonationTransactions > 0) {
             if (adminReport) {
                 return "In " + monthName + " " + year + ", the ShareHub platform recorded "
@@ -405,12 +508,20 @@ public class MonthlyReportServlet extends HttpServlet {
                     + "These activities show continued participation in reuse, reduced waste, "
                     + "and community support within UMT.";
         }
-        return "In " + monthName + " " + year + ", ShareHub recorded "
-                + stats.totalDonationsSubmitted + " donation submission(s) and "
-                + stats.totalRequestsSubmitted + " request submission(s). "
-                + (adminReport
-                ? "This report can support monitoring, moderation review, and sustainability planning."
-                : "Your participation helps build a reuse culture within the UMT community.");
+        if (adminReport) {
+            return "In " + monthName + " " + year + ", ShareHub recorded "
+                    + stats.totalDonationsSubmitted + " donation submission(s) and "
+                    + stats.totalRequestsSubmitted + " request submission(s). "
+                    + "There were " + stats.activeDonations + " active listing(s), "
+                    + stats.rejectedRequests + " rejected request(s), and "
+                    + stats.expiredDonations + " expired listing(s). This report supports moderation review, "
+                    + "activity monitoring, and sustainability planning.";
+        }
+        return "In " + monthName + " " + year + ", " + preparedFor + " submitted "
+                + stats.totalDonationsSubmitted + " donation(s) and "
+                + stats.totalRequestsSubmitted + " request(s). "
+                + "Personal contribution reports help students understand how their activity supports reuse "
+                + "and reduces unnecessary waste within the UMT community.";
     }
 
     private boolean isAdmin(HttpSession session) {
